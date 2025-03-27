@@ -1,1 +1,0 @@
-# Endpoint per funzionalità amministrative

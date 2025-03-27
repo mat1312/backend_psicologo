@@ -1,1 +1,0 @@
-# Servizio per gestione Qdrant
