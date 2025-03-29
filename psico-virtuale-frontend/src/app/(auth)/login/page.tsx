@@ -18,19 +18,21 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [isLogin, setIsLogin] = useState(true)
   const router = useRouter()
-  const { initialize } = useAuthStore()
+  const { initialize, user } = useAuthStore()
 
   useEffect(() => {
     // Controlla se l'utente è già autenticato
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession()
       if (session) {
-        router.push('/dashboard')
+        // Inizializza lo store per assicurarsi che user sia impostato
+        await initialize()
+        router.replace('/dashboard')
       }
     }
     
     checkSession()
-  }, [router])
+  }, [router, initialize])
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -56,7 +58,12 @@ export default function LoginPage() {
         
         // Inizializza lo store prima di reindirizzare
         await initialize()
-        router.push('/dashboard')
+        
+        // Aggiungiamo un piccolo ritardo per assicurarci che lo stato sia aggiornato
+        setTimeout(() => {
+          // Utilizziamo router.replace invece di push per una sostituzione completa
+          router.replace('/dashboard')
+        }, 300)
       } else {
         // Registrazione
         // Prima registriamo l'utente in auth
@@ -92,7 +99,11 @@ export default function LoginPage() {
             
             // Inizializza lo store prima di reindirizzare
             await initialize()
-            router.push('/dashboard')
+            
+            // Utilizziamo router.replace con un piccolo ritardo
+            setTimeout(() => {
+              router.replace('/dashboard')
+            }, 300)
           } catch (profileError: any) {
             console.error("Errore dettagliato:", JSON.stringify(profileError))
             toast.error("Errore nella creazione del profilo", {
