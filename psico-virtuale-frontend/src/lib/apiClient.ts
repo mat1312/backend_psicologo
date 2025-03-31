@@ -5,15 +5,19 @@ export type ChatMessage = {
   content: string;
 };
 
+// src/lib/apiClient.ts
+// Modifica l'interfaccia ChatResponse
+
 export interface ChatResponse {
-  answer: string;
-  sources?: Array<{
-    file_name?: string;
-    page?: number;
-    text?: string;
-  }>;
-  analysis?: string;
-}
+    answer: string;
+    sources?: Array<{
+      file_name?: string;
+      page?: number;
+      text?: string;
+    }>;
+    analysis?: string;
+    audio_url?: string; // Aggiunta questa proprietà, Modifica backend
+  }
 
 export interface ResetSessionResponse {
   status: string;
