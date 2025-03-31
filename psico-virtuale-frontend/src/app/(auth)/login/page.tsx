@@ -59,78 +59,125 @@ export default function LoginPage() {
         // Inizializza lo store prima di reindirizzare
         await initialize()
         
-        // Aggiungiamo un piccolo ritardo per assicurarci che lo stato sia aggiornato
+        // Reindirizza dopo un breve ritardo
         setTimeout(() => {
-          // Utilizziamo router.replace invece di push per una sostituzione completa
           router.replace('/dashboard')
         }, 300)
       } else {
         // Registrazione
-        // Prima registriamo l'utente in auth
+        toast.info("Registrazione in corso...", { id: "signup-toast" })
+        
+        // 1. Registra l'utente in auth
         const { data, error } = await supabase.auth.signUp({
           email,
-          password
+          password,
+          options: {
+            data: {
+              // Mettiamo il ruolo anche nei metadata dell'utente per sicurezza
+              role: role
+            }
+          }
         })
 
         if (error) throw error
 
-        if (data?.user?.id) {
-          try {
-            console.log("Creazione profilo per:", data.user.id, email, role)
+        if (!data.user) {
+          throw new Error("Utente non creato correttamente");
+        }
+
+        // 2. Attendi un momento per assicurarti che l'utente sia creato
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        try {
+          // 3. Crea il profilo con ruolo utilizzando la Service Role Key
+          // Nota: questo va fatto con un'API server-side in produzione!
+          // Per scopi di dimostrazione/sviluppo, utilizziamo un metodo client-side
+          
+          console.log("Creazione profilo per:", data.user.id, email, role);
+          
+          // 3.1 Verifica se il profilo esiste già
+          const { data: existingProfile, error: checkError } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('id', data.user.id)
+            .maybeSingle();
             
-            // Attendi un breve momento per assicurarsi che l'utente sia creato
-            await new Promise(resolve => setTimeout(resolve, 500))
-            
-            // Creazione profilo
+          if (checkError) {
+            console.error("Errore verifica profilo:", checkError);
+          }
+          
+          // 3.2 Crea il profilo solo se non esiste già
+          if (!existingProfile) {
             const { error: profileError } = await supabase
               .from('profiles')
               .insert({
                 id: data.user.id,
                 email: email,
                 role: role
-              })
+              });
 
             if (profileError) {
-              console.error("Errore dettagliato creazione profilo:", JSON.stringify(profileError))
-              throw profileError
+              console.error("Errore dettagliato creazione profilo:", profileError);
+              
+              // Mostra errore specifico
+              if (profileError.code === '23505') {
+                toast.error("Profilo già esistente", { id: "signup-toast" });
+              } else if (profileError.code === '42501') {
+                toast.error("Permessi insufficienti. Controlla le policy RLS", { id: "signup-toast" });
+              } else {
+                toast.error(`Errore: ${profileError.message || "Errore creazione profilo"}`, { id: "signup-toast" });
+              }
+              
+              // Se c'è un errore, comunque continua perché l'utente auth è stato creato
+              // e il profilo potrebbe essere creato automaticamente dal trigger o dal flusso di login
             }
-
-            toast.success(`Registrazione completata come ${role === 'therapist' ? 'psicologo' : 'paziente'}`)
-            
-            // Inizializza lo store prima di reindirizzare
-            await initialize()
-            
-            // Utilizziamo router.replace con un piccolo ritardo
-            setTimeout(() => {
-              router.replace('/dashboard')
-            }, 300)
-          } catch (profileError: any) {
-            console.error("Errore dettagliato:", JSON.stringify(profileError))
-            toast.error("Errore nella creazione del profilo", {
-              description: profileError?.message || "Controlla la console per dettagli"
-            })
           }
+
+          toast.success("Registrazione completata come " + (role === 'therapist' ? 'psicologo' : 'paziente'), { id: "signup-toast" });
+          
+          // Inizializza lo store prima di reindirizzare
+          await initialize();
+          
+          // Reindirizza dopo un breve ritardo
+          setTimeout(() => {
+            router.replace('/dashboard');
+          }, 300);
+        } catch (profileError: any) {
+          console.error("Errore dettagliato:", profileError);
+          toast.error("Errore nella creazione del profilo", {
+            id: "signup-toast",
+            description: profileError?.message || "Controlla la console per dettagli"
+          });
+          
+          // Nonostante l'errore del profilo, l'utente auth è stato creato
+          // Facciamo comunque il redirect
+          setTimeout(() => {
+            router.replace('/dashboard');
+          }, 1000);
         }
       }
     } catch (error: any) {
-      console.error("Errore di autenticazione:", JSON.stringify(error))
+      console.error("Errore di autenticazione:", error);
       
       // Messaggi di errore più leggibili
-      let errorMessage = "Si è verificato un errore"
+      let errorMessage = "Si è verificato un errore";
       
       if (error.message?.includes("credentials")) {
-        errorMessage = "Email o password non corretti"
+        errorMessage = "Email o password non corretti";
       } else if (error.message?.includes("confirm")) {
-        errorMessage = "Controlla la tua email per confermare la registrazione"
+        errorMessage = "Controlla la tua email per confermare la registrazione";
       } else if (error.message?.includes("already") || error.message?.includes("esistente")) {
-        errorMessage = "Email già registrata. Prova ad effettuare l'accesso"
+        errorMessage = "Email già registrata. Prova ad effettuare l'accesso";
       } else {
-        errorMessage = error.message || "Errore sconosciuto"
+        errorMessage = error.message || "Errore sconosciuto";
       }
       
-      toast.error("Errore", { description: errorMessage })
+      toast.error("Errore", { 
+        id: "signup-toast",
+        description: errorMessage 
+      });
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 

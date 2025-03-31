@@ -1,6 +1,20 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+// Esportiamo le variabili separatamente per poterle usare anche in altri file
+export const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+export const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Configurazione ottimizzata del client Supabase
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+  },
+  global: {
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      'X-Client-Info': 'supabase-js/2.x'
+    },
+  },
+});
