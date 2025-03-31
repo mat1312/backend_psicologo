@@ -43,26 +43,44 @@ export default function LoginPage() {
     }
     
     setLoading(true)
+    
+    // Timeout per evitare attese infinite
+    const authTimeout = setTimeout(() => {
+      console.log("Login timeout - operazione bloccata")
+      setLoading(false)
+      toast.error("Errore", { description: "Operazione interrotta per timeout. Riprova." })
+    }, 10000) // 10 secondi di timeout
 
     try {
       if (isLogin) {
+        console.log("Tentativo di login con:", email)
+        
         // Login
         const { data, error } = await supabase.auth.signInWithPassword({
           email,
           password,
         })
 
+        // Cancella il timeout una volta completata l'operazione
+        clearTimeout(authTimeout)
+
         if (error) throw error
         
+        console.log("Login completato con successo:", data.user?.id)
         toast.success("Accesso effettuato")
         
-        // Inizializza lo store prima di reindirizzare
-        await initialize()
+        console.log("Inizializzazione store...")
+        try {
+          await initialize()
+          console.log("Store inizializzato")
+        } catch (initError) {
+          console.error("Errore durante l'inizializzazione:", initError)
+          // Continua comunque con il reindirizzamento
+        }
         
-        // Reindirizza dopo un breve ritardo
-        setTimeout(() => {
-          router.replace('/dashboard')
-        }, 300)
+        console.log("Reindirizzamento in corso...")
+        // Reindirizza direttamente, senza setTimeout
+        router.replace('/dashboard')
       } else {
         // Registrazione
         toast.info("Registrazione in corso...", { id: "signup-toast" })
@@ -78,6 +96,9 @@ export default function LoginPage() {
             }
           }
         })
+
+        // Cancella il timeout
+        clearTimeout(authTimeout)
 
         if (error) throw error
 
@@ -135,13 +156,16 @@ export default function LoginPage() {
 
           toast.success("Registrazione completata come " + (role === 'therapist' ? 'psicologo' : 'paziente'), { id: "signup-toast" });
           
-          // Inizializza lo store prima di reindirizzare
-          await initialize();
+          console.log("Inizializzazione store dopo registrazione...");
+          try {
+            await initialize();
+            console.log("Store inizializzato");
+          } catch (initError) {
+            console.error("Errore durante l'inizializzazione:", initError);
+          }
           
-          // Reindirizza dopo un breve ritardo
-          setTimeout(() => {
-            router.replace('/dashboard');
-          }, 300);
+          console.log("Reindirizzamento dopo registrazione...");
+          router.replace('/dashboard');
         } catch (profileError: any) {
           console.error("Errore dettagliato:", profileError);
           toast.error("Errore nella creazione del profilo", {
@@ -151,12 +175,13 @@ export default function LoginPage() {
           
           // Nonostante l'errore del profilo, l'utente auth è stato creato
           // Facciamo comunque il redirect
-          setTimeout(() => {
-            router.replace('/dashboard');
-          }, 1000);
+          router.replace('/dashboard');
         }
       }
     } catch (error: any) {
+      // Cancella il timeout in caso di errore
+      clearTimeout(authTimeout)
+      
       console.error("Errore di autenticazione:", error);
       
       // Messaggi di errore più leggibili
@@ -177,6 +202,7 @@ export default function LoginPage() {
         description: errorMessage 
       });
     } finally {
+      // Assicuriamoci che loading venga sempre disattivato
       setLoading(false);
     }
   }
@@ -257,6 +283,35 @@ export default function LoginPage() {
               {isLogin
                 ? 'Non hai un account? Registrati'
                 : 'Hai già un account? Accedi'}
+            </Button>
+            
+            {/* Pulsante di test per debug */}
+            <Button 
+              type="button" 
+              variant="outline" 
+              className="w-full mt-2" 
+              onClick={async () => {
+                console.log("Test di autenticazione");
+                try {
+                  const { data, error } = await supabase.auth.signInWithPassword({
+                    email,
+                    password,
+                  });
+                  
+                  console.log("Risposta auth:", data, error);
+                  
+                  if (error) {
+                    toast.error("Test fallito", { description: error.message });
+                  } else if (data.user) {
+                    toast.success("Test riuscito", { description: `ID: ${data.user.id}` });
+                  }
+                } catch (e) {
+                  console.error("Errore nel test:", e);
+                  toast.error("Errore imprevisto", { description: String(e) });
+                }
+              }}
+            >
+              Test Auth
             </Button>
           </CardFooter>
         </form>

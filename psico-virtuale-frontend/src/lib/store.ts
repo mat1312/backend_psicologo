@@ -32,110 +32,73 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ user: null, session: null })
   },
   initialize: async () => {
-    set({ loading: true })
+    set({ loading: true });
+    console.log("Inizializzazione auth store...");
     
     try {
-      // Ottieni la sessione corrente
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+      // 1. Ottieni la sessione
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
       if (sessionError) {
-        console.error('Errore nel recupero della sessione:', sessionError)
-        set({ loading: false, initialized: true })
-        return
+        console.error('Errore nel recupero della sessione:', sessionError);
+        set({ loading: false, initialized: true });
+        return;
       }
       
-      set({ session })
+      if (!session) {
+        console.log('Nessuna sessione attiva');
+        set({ loading: false, initialized: true });
+        return;
+      }
+      
+      set({ session });
+      console.log('Sessione trovata per:', session.user.id);
       
       if (session?.user?.id) {
         try {
-          // Metodo 1: Recupera il profilo utilizzando una query diretta
-          let profile = null;
-          
-          try {
-            // Utilizziamo un metodo POST invece di GET (elimina il problema 406)
-            const { data, error } = await supabase.rpc('get_profile', {
-              user_id: session.user.id
+          // 2. Approccio semplificato: una sola query per il profilo
+          console.log('Recupero profilo...');
+          const { data: profile, error } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+            
+          if (error) {
+            console.error('Errore nel recupero del profilo:', error);
+            // Fallback: crea un profilo base con i dati della sessione
+            const defaultRole = session.user.user_metadata?.role || 'patient';
+            
+            set({
+              user: {
+                id: session.user.id,
+                email: session.user.email || '',
+                role: defaultRole,
+                first_name: session.user.user_metadata?.first_name,
+                last_name: session.user.user_metadata?.last_name
+              }
             });
             
-            if (!error && data) {
-              profile = data;
-            }
-          } catch (rpcError) {
-            console.log('RPC non disponibile, utilizzo metodo alternativo');
-          }
-          
-          // Metodo 2: Se RPC fallisce, usando l'SDK standard
-          if (!profile) {
-            const { data, error } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('id', session.user.id)
-              .maybeSingle();
-              
-            if (!error && data) {
-              profile = data;
-            } else {
-              console.log('Errore query standard:', error);
-            }
-          }
-          
-          // Metodo 3: Ultimo tentativo con fetch diretto
-          if (!profile) {
-            try {
-              const token = session.access_token;
-              const response = await fetch(`${supabaseUrl}/rest/v1/profiles?id=eq.${encodeURIComponent(session.user.id)}&select=*`, {
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${token}`,
-                  'apikey': supabaseAnonKey,
-                  'Accept': 'application/json',
-                }
-              });
-              
-              if (response.ok) {
-                const data = await response.json();
-                if (Array.isArray(data) && data.length > 0) {
-                  profile = data[0];
-                }
-              } else {
-                console.log('Fetch diretto fallito:', response.status);
-              }
-            } catch (fetchError) {
-              console.error('Errore fetch diretto:', fetchError);
-            }
-          }
-          
-          // Metodo 4: Utilizza i metadati dell'utente come fallback
-          if (!profile) {
-            const userMetadata = session.user.user_metadata || {};
-            const userRole = userMetadata.role || 'patient'; // Default a patient
+            console.log('Profilo di fallback creato con ruolo:', defaultRole);
             
-            profile = {
-              id: session.user.id,
-              email: session.user.email,
-              role: userRole,
-              first_name: userMetadata.first_name,
-              last_name: userMetadata.last_name
-            };
-            
-            // Tenta di creare il profilo se non esiste
+            // Opzionalmente, tenta di creare il profilo in background
             try {
-              const { error: insertError } = await supabase
+              const newProfile = {
+                id: session.user.id,
+                email: session.user.email || '',
+                role: defaultRole
+              };
+              
+              await supabase
                 .from('profiles')
-                .insert(profile);
+                .insert(newProfile);
                 
-              if (insertError) {
-                console.error('Tentativo di creazione profilo fallito:', insertError);
-              } else {
-                console.log('Profilo creato con successo');
-              }
+              console.log('Profilo creato con successo');
             } catch (insertError) {
-              console.error('Errore creazione profilo:', insertError);
+              console.error('Errore nella creazione del profilo:', insertError);
             }
-          }
-          
-          // Se abbiamo trovato o creato un profilo, aggiorniamo lo stato
-          if (profile) {
+          } else if (profile) {
+            // Profilo trovato con successo
             set({ 
               user: {
                 id: session.user.id,
@@ -145,36 +108,24 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                 last_name: profile.last_name
               } 
             });
-          } else {
-            // Fallback totale: creare un profilo di emergenza basato sui dati di sessione
-            set({
-              user: {
-                id: session.user.id,
-                email: session.user.email || '',
-                role: 'patient', // Ruolo di default
-                first_name: undefined,
-                last_name: undefined
-              }
-            });
-            console.warn('Impossibile recuperare o creare un profilo, utilizzando dati di emergenza');
+            console.log('Profilo caricato con ruolo:', profile.role);
           }
         } catch (error) {
-          console.error('Errore inaspettato nel recupero del profilo:', error);
-          // Fallback con i dati disponibili nella sessione
+          console.error('Errore imprevisto nel recupero/creazione profilo:', error);
+          // Fallback minimo in caso di errore
           set({
             user: {
               id: session.user.id,
               email: session.user.email || '',
-              role: 'patient', // Ruolo di default
-              first_name: undefined,
-              last_name: undefined
+              role: 'patient'
             }
           });
         }
       }
     } catch (error) {
-      console.error('Errore durante l\'inizializzazione dell\'autenticazione:', error);
+      console.error('Errore generale durante l\'inizializzazione:', error);
     } finally {
+      console.log('Inizializzazione completata');
       set({ loading: false, initialized: true });
     }
   }
