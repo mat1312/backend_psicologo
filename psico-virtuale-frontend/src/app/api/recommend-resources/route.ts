@@ -1,21 +1,13 @@
+// src/app/api/recommend-resources/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
 
 export async function POST(req: NextRequest) {
   try {
-    // Verifica autenticazione
-    const supabase = createRouteHandlerClient({ cookies });
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      return NextResponse.json(
-        { error: 'Utente non autenticato' }, 
-        { status: 401 }
-      );
-    }
-
-    // Estrai i dati
-    const { query, session_id } = await req.json();
+    // Ottieni i dati della richiesta prima
+    const data = await req.json();
+    const { query, session_id } = data;
     
     if (!session_id) {
       return NextResponse.json(
@@ -24,8 +16,34 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Inizializza Supabase
+    const cookieStore = cookies();
+    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
+    
+    // Ottieni la sessione
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    
+    if (sessionError) {
+      console.error("Errore nel recupero della sessione:", sessionError);
+      return NextResponse.json(
+        { error: `Errore di autenticazione: ${sessionError.message}` }, 
+        { status: 401 }
+      );
+    }
+    
+    if (!session) {
+      console.error("Nessuna sessione attiva trovata");
+      return NextResponse.json(
+        { error: 'Utente non autenticato' }, 
+        { status: 401 }
+      );
+    }
+
+    // Log per debug
+    console.log("Token trovato per recommend-resources:", session.access_token ? "Sì" : "No");
+    
     // Chiama il backend
-    const response = await fetch(`${process.env.BACKEND_URL}/api/recommend-resources`, {
+    const response = await fetch(`${process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL}/api/recommend-resources`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -35,15 +53,24 @@ export async function POST(req: NextRequest) {
     });
     
     if (!response.ok) {
-      const errorData = await response.json();
+      const errorText = await response.text();
+      let errorData;
+      try {
+        errorData = JSON.parse(errorText);
+      } catch (e) {
+        errorData = { detail: errorText };
+      }
+      
+      console.error("Errore dal backend:", response.status, errorData);
+      
       return NextResponse.json(
-        { error: errorData.detail || 'Errore del server' }, 
+        { error: errorData.detail || `Errore del server (${response.status})` }, 
         { status: response.status }
       );
     }
     
-    const data = await response.json();
-    return NextResponse.json(data);
+    const responseData = await response.json();
+    return NextResponse.json(responseData);
   } catch (error: any) {
     console.error('Errore nel recupero delle risorse consigliate:', error);
     return NextResponse.json(

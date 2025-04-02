@@ -5,7 +5,7 @@ import { cookies } from 'next/headers';
 
 export async function GET(req: NextRequest) {
   try {
-    // Creiamo il client Supabase con i cookie
+    // Creiamo il client Supabase con i cookie - correzione inizializzazione
     const cookieStore = cookies();
     const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
     

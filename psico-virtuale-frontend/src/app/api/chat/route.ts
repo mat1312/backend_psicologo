@@ -4,8 +4,9 @@ import { cookies } from 'next/headers';
 
 export async function POST(req: NextRequest) {
   try {
-    // 1. Crea il client Supabase per il server
-    const supabase = createRouteHandlerClient({ cookies });
+    // 1. Crea il client Supabase correttamente
+    const cookieStore = cookies();
+    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
     
     // 2. Verifica autenticazione
     const { data: { session } } = await supabase.auth.getSession();

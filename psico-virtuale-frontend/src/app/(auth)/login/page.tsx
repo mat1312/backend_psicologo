@@ -23,23 +23,27 @@ export default function LoginPage() {
   useEffect(() => {
     // Controlla se l'utente è già autenticato
     const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (session) {
-        // Inizializza lo store per assicurarsi che user sia impostato
-        await initialize()
-        
-        // Verifica il ruolo dell'utente e reindirizza di conseguenza
-        const currentUser = useAuthStore.getState().user
-        if (currentUser?.role === 'therapist') {
-          router.replace('/therapist-dashboard')
-        } else {
-          router.replace('/patient-dashboard')
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (session) {
+          // Inizializza lo store per assicurarsi che user sia impostato
+          await initialize()
+          
+          // Verifica il ruolo dell'utente e reindirizza di conseguenza
+          const currentUser = useAuthStore.getState().user
+          if (currentUser?.role === 'therapist') {
+            window.location.href = '/therapist-dashboard'
+          } else {
+            window.location.href = '/patient-dashboard'
+          }
         }
+      } catch (error) {
+        console.error("Errore durante il controllo della sessione:", error)
       }
     }
     
     checkSession()
-  }, [router, initialize])
+  }, [initialize])
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -85,22 +89,29 @@ export default function LoginPage() {
           const userRole = useAuthStore.getState().user?.role || data.user?.user_metadata?.role || 'patient'
           
           console.log("Reindirizzamento in corso in base al ruolo:", userRole)
-          if (userRole === 'therapist') {
-            router.replace('/therapist-dashboard')
-          } else {
-            router.replace('/patient-dashboard')
-          }
+          
+          // Utilizzare window.location.href come soluzione più diretta
+          // invece di router.push che potrebbe non funzionare
+          setTimeout(() => {
+            if (userRole === 'therapist') {
+              window.location.href = '/therapist-dashboard'
+            } else {
+              window.location.href = '/patient-dashboard'
+            }
+          }, 1000)
         } catch (initError) {
           console.error("Errore durante l'inizializzazione:", initError)
           
           // Anche in caso di errore, tenta di utilizzare il ruolo dai metadata
           const userRole = data.user?.user_metadata?.role || 'patient'
           
-          if (userRole === 'therapist') {
-            router.replace('/therapist-dashboard')
-          } else {
-            router.replace('/patient-dashboard')
-          }
+          setTimeout(() => {
+            if (userRole === 'therapist') {
+              window.location.href = '/therapist-dashboard'
+            } else {
+              window.location.href = '/patient-dashboard'
+            }
+          }, 1000)
         }
       } else {
         // Registrazione
@@ -131,10 +142,7 @@ export default function LoginPage() {
         await new Promise(resolve => setTimeout(resolve, 1000));
         
         try {
-          // 3. Crea il profilo con ruolo utilizzando la Service Role Key
-          // Nota: questo va fatto con un'API server-side in produzione!
-          // Per scopi di dimostrazione/sviluppo, utilizziamo un metodo client-side
-          
+          // 3. Crea il profilo con ruolo
           console.log("Creazione profilo per:", data.user.id, email, role);
           
           // 3.1 Verifica se il profilo esiste già
@@ -182,13 +190,15 @@ export default function LoginPage() {
             console.error("Errore durante l'inizializzazione:", initError);
           }
           
-          // Reindirizzamento diretto in base al ruolo scelto durante la registrazione
-          console.log("Reindirizzamento in base al ruolo scelto:", role);
-          if (role === 'therapist') {
-            router.replace('/therapist-dashboard');
-          } else {
-            router.replace('/patient-dashboard');
-          }
+          // Utilizzare window.location.href come soluzione più diretta
+          setTimeout(() => {
+            console.log("Reindirizzamento in base al ruolo scelto:", role);
+            if (role === 'therapist') {
+              window.location.href = '/therapist-dashboard'
+            } else {
+              window.location.href = '/patient-dashboard'
+            }
+          }, 1000);
         } catch (profileError: any) {
           console.error("Errore dettagliato:", profileError);
           toast.error("Errore nella creazione del profilo", {
@@ -197,11 +207,13 @@ export default function LoginPage() {
           });
           
           // Nonostante l'errore del profilo, reindirizza in base al ruolo scelto
-          if (role === 'therapist') {
-            router.replace('/therapist-dashboard');
-          } else {
-            router.replace('/patient-dashboard');
-          }
+          setTimeout(() => {
+            if (role === 'therapist') {
+              window.location.href = '/therapist-dashboard'
+            } else {
+              window.location.href = '/patient-dashboard'
+            }
+          }, 1000);
         }
       }
     } catch (error: any) {

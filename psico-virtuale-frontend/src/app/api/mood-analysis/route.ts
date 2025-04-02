@@ -4,8 +4,10 @@ import { cookies } from 'next/headers';
 
 export async function POST(req: NextRequest) {
   try {
-    // Verifica autenticazione
-    const supabase = createRouteHandlerClient({ cookies });
+    // Verifica autenticazione - correzione inizializzazione Supabase
+    const cookieStore = cookies();
+    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
+    
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
       return NextResponse.json(

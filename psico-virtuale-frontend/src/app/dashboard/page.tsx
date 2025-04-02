@@ -5,20 +5,25 @@ import { useRouter } from 'next/navigation'
 import { useAuthStore } from '@/lib/store'
 
 export default function DashboardPage() {
-  const { user, loading } = useAuthStore()
+  const { user, loading, initialized } = useAuthStore()
   const router = useRouter()
 
   useEffect(() => {
-    if (!loading) {
+    console.log("Dashboard check - User:", user?.role, "Loading:", loading, "Initialized:", initialized)
+    
+    if (!loading && initialized) {
       if (!user) {
+        console.log("Redirecting to login - No user")
         router.push('/login')
       } else if (user.role === 'therapist') {
+        console.log("Redirecting to therapist dashboard")
         router.push('/therapist-dashboard')
       } else {
+        console.log("Redirecting to patient dashboard")
         router.push('/patient-dashboard')
       }
     }
-  }, [user, loading, router])
+  }, [user, loading, initialized, router])
 
   return (
     <div className="flex items-center justify-center min-h-screen">
