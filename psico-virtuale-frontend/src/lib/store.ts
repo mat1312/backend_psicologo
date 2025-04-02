@@ -7,6 +7,8 @@ interface User {
   role: 'patient' | 'therapist'
   first_name?: string
   last_name?: string
+  avatar_url?: string
+  created_at?: string
 }
 
 interface AuthState {
