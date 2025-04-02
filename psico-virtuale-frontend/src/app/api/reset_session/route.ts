@@ -4,17 +4,32 @@ import { cookies } from 'next/headers';
 
 export async function POST(req: NextRequest) {
   try {
-    // Verifica autenticazione - correzione inizializzazione Supabase
+    // Crea il client Supabase correttamente
     const cookieStore = cookies();
     const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
     
-    const { data: { session } } = await supabase.auth.getSession();
+    // Verifica autenticazione - usa await per la gestione asincrona
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    
+    if (sessionError) {
+      console.error("Errore nel recupero della sessione:", sessionError);
+      return NextResponse.json(
+        { error: `Errore di autenticazione: ${sessionError.message}` }, 
+        { status: 401 }
+      );
+    }
+    
     if (!session) {
+      console.error("Nessuna sessione attiva trovata");
       return NextResponse.json(
         { error: 'Utente non autenticato' }, 
         { status: 401 }
       );
     }
+
+    // Log per debug - Corretto per gestire expires_at undefined
+    console.log("Token trovato per reset-session:", session?.access_token ? "Sì" : "No",
+                session?.expires_at ? `Scade: ${new Date(session.expires_at * 1000).toLocaleString()}` : "Scadenza non disponibile");
 
     // Estrai i dati
     const { session_id } = await req.json();
@@ -26,8 +41,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Usa l'URL del backend da variabili d'ambiente
+    const backendUrl = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL;
+
     // Chiama il backend
-    const response = await fetch(`${process.env.BACKEND_URL}/reset-session`, {
+    const response = await fetch(`${backendUrl}/reset-session`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -37,9 +55,17 @@ export async function POST(req: NextRequest) {
     });
     
     if (!response.ok) {
-      const errorData = await response.json();
+      // Gestione avanzata degli errori
+      let errorData;
+      try {
+        errorData = await response.json();
+      } catch (e) {
+        const errorText = await response.text();
+        errorData = { detail: errorText };
+      }
+      
       return NextResponse.json(
-        { error: errorData.detail || 'Errore del server' }, 
+        { error: errorData.detail || `Errore del server (${response.status})` }, 
         { status: response.status }
       );
     }

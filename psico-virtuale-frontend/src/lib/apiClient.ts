@@ -51,14 +51,32 @@ export interface PathologyAnalysisResponse {
 }
 
 class ApiClient {
-  // Metodo privato per verificare la sessione
+  // Metodo privato migliorato per verificare la sessione
   private async ensureSession(): Promise<string | null> {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session || !session.access_token) {
-      console.error("Nessuna sessione trovata, reindirizzamento alla pagina di login necessario");
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session || !session.access_token) {
+        console.error("Nessuna sessione trovata o token mancante");
+        return null;
+      }
+      
+      // Controllo scadenza token per debug - Versione corretta con controllo undefined
+      if (session.expires_at) {
+        const now = Date.now() / 1000;
+        const expiresAt = session.expires_at;
+        const timeLeft = expiresAt - now;
+        
+        console.log(`Token presente, scade tra: ${Math.floor(timeLeft / 60)} minuti e ${Math.floor(timeLeft % 60)} secondi`);
+      } else {
+        console.log("Token presente, ma scadenza non disponibile");
+      }
+      
+      return session.access_token;
+    } catch (error) {
+      console.error("Errore nel verificare la sessione:", error);
       return null;
     }
-    return session.access_token;
   }
 
   async sendMessage(
@@ -68,6 +86,9 @@ class ApiClient {
   ): Promise<ChatResponse> {
     try {
       console.log(`ApiClient: invio messaggio per sessione ${sessionId}`);
+      
+      // Solo per debug
+      await this.ensureSession();
       
       const response = await fetch('/api/chat', {
         method: 'POST',
@@ -96,12 +117,20 @@ class ApiClient {
           throw new Error('Sessione scaduta, effettua nuovamente il login');
         }
         
-        const errorData = await response.json();
+        let errorData;
+        try {
+          errorData = await response.json();
+        } catch (e) {
+          const errorText = await response.text();
+          throw new Error(errorText || 'Si è verificato un errore');
+        }
+        
         throw new Error(errorData.error || 'Si è verificato un errore');
       }
 
       return await response.json();
     } catch (error: any) {
+      console.error("Errore dettagliato:", error);
       toast.error('Errore nell\'invio del messaggio', { 
         description: error.message || 'Si è verificato un errore imprevisto' 
       });
@@ -111,6 +140,9 @@ class ApiClient {
 
   async resetSession(sessionId: string): Promise<ResetSessionResponse> {
     try {
+      // Solo per debug
+      await this.ensureSession();
+      
       const response = await fetch('/api/reset-session', {
         method: 'POST',
         headers: {
@@ -134,12 +166,20 @@ class ApiClient {
           throw new Error('Sessione scaduta');
         }
         
-        const errorData = await response.json();
+        let errorData;
+        try {
+          errorData = await response.json();
+        } catch (e) {
+          const errorText = await response.text();
+          throw new Error(errorText || 'Si è verificato un errore');
+        }
+        
         throw new Error(errorData.error || 'Si è verificato un errore');
       }
 
       return await response.json();
     } catch (error: any) {
+      console.error("Errore dettagliato:", error);
       toast.error('Errore nel reset della sessione', { description: error.message });
       throw error;
     }
@@ -147,6 +187,9 @@ class ApiClient {
 
   async getSessionSummary(sessionId: string): Promise<{ summary_html: string }> {
     try {
+      // Solo per debug
+      await this.ensureSession();
+      
       const response = await fetch(`/api/session-summary/${sessionId}`, {
         method: 'GET',
       });
@@ -158,12 +201,20 @@ class ApiClient {
           throw new Error('Sessione scaduta');
         }
         
-        const errorData = await response.json();
+        let errorData;
+        try {
+          errorData = await response.json();
+        } catch (e) {
+          const errorText = await response.text();
+          throw new Error(errorText || 'Si è verificato un errore');
+        }
+        
         throw new Error(errorData.error || 'Si è verificato un errore');
       }
 
       return await response.json();
     } catch (error: any) {
+      console.error("Errore dettagliato:", error);
       toast.error('Errore nel recupero del riepilogo', { description: error.message });
       throw error;
     }
@@ -175,6 +226,9 @@ class ApiClient {
   ): Promise<ResourcesResponse> {
     try {
       console.log(`ApiClient: richiesta risorse per sessione ${sessionId}`);
+      
+      // Verifica sessione solo per debugging, ma usiamo comunque le API Routes
+      await this.ensureSession();
       
       const response = await fetch('/api/recommend-resources', {
         method: 'POST',
@@ -189,24 +243,45 @@ class ApiClient {
 
       if (!response.ok) {
         if (response.status === 401) {
-          toast.error('Sessione scaduta');
-          setTimeout(() => window.location.href = '/login', 1500);
-          throw new Error('Sessione scaduta');
+          console.error("Errore 401 ricevuto - sessione scaduta");
+          toast.error('Sessione scaduta', { 
+            description: 'Effettua nuovamente il login'
+          });
+          
+          // Non reindirizzare immediatamente, attendi un po'
+          setTimeout(() => {
+            window.location.href = '/login';
+          }, 2000);
+          
+          throw new Error('Sessione scaduta, effettua nuovamente il login');
         }
         
-        const errorData = await response.json();
+        let errorData;
+        try {
+          errorData = await response.json();
+        } catch (e) {
+          const errorText = await response.text();
+          throw new Error(errorText || 'Si è verificato un errore');
+        }
+        
         throw new Error(errorData.error || 'Si è verificato un errore');
       }
 
       return await response.json();
     } catch (error: any) {
-      toast.error('Errore nel recupero delle risorse', { description: error.message });
+      console.error("Errore dettagliato:", error);
+      toast.error('Errore nel recupero delle risorse', { 
+        description: error.message || 'Si è verificato un errore imprevisto' 
+      });
       throw error;
     }
   }
 
   async getMoodAnalysis(sessionId: string): Promise<MoodAnalysisResponse> {
     try {
+      // Solo per debug
+      await this.ensureSession();
+      
       const response = await fetch('/api/mood-analysis', {
         method: 'POST',
         headers: {
@@ -225,12 +300,20 @@ class ApiClient {
           throw new Error('Sessione scaduta');
         }
         
-        const errorData = await response.json();
+        let errorData;
+        try {
+          errorData = await response.json();
+        } catch (e) {
+          const errorText = await response.text();
+          throw new Error(errorText || 'Si è verificato un errore');
+        }
+        
         throw new Error(errorData.error || 'Si è verificato un errore');
       }
 
       return await response.json();
     } catch (error: any) {
+      console.error("Errore dettagliato:", error);
       toast.error('Errore nell\'analisi dell\'umore', { description: error.message });
       throw error;
     }
@@ -238,6 +321,9 @@ class ApiClient {
 
   async getPathologyAnalysis(sessionId: string): Promise<PathologyAnalysisResponse> {
     try {
+      // Solo per debug
+      await this.ensureSession();
+      
       const response = await fetch('/api/pathology-analysis', {
         method: 'POST',
         headers: {
@@ -256,12 +342,20 @@ class ApiClient {
           throw new Error('Sessione scaduta');
         }
         
-        const errorData = await response.json();
+        let errorData;
+        try {
+          errorData = await response.json();
+        } catch (e) {
+          const errorText = await response.text();
+          throw new Error(errorText || 'Si è verificato un errore');
+        }
+        
         throw new Error(errorData.error || 'Si è verificato un errore');
       }
 
       return await response.json();
     } catch (error: any) {
+      console.error("Errore dettagliato:", error);
       toast.error('Errore nell\'analisi delle patologie', { description: error.message });
       throw error;
     }

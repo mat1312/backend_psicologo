@@ -8,14 +8,28 @@ export async function POST(req: NextRequest) {
     const cookieStore = cookies();
     const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
     
-    // 2. Verifica autenticazione
-    const { data: { session } } = await supabase.auth.getSession();
+    // 2. Verifica autenticazione - usa await per la gestione asincrona
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    
+    if (sessionError) {
+      console.error("Errore nel recupero della sessione:", sessionError);
+      return NextResponse.json(
+        { error: `Errore di autenticazione: ${sessionError.message}` }, 
+        { status: 401 }
+      );
+    }
+    
     if (!session) {
+      console.error("Nessuna sessione attiva trovata");
       return NextResponse.json(
         { error: 'Utente non autenticato' }, 
         { status: 401 }
       );
     }
+
+    // Log per debug - Corretto per gestire expires_at undefined
+    console.log("Token trovato per chat:", session?.access_token ? "Sì" : "No",
+                session?.expires_at ? `Scade: ${new Date(session.expires_at * 1000).toLocaleString()}` : "Scadenza non disponibile");
 
     // 3. Estrai i dati dalla richiesta
     const { query, session_id, mood } = await req.json();
@@ -27,8 +41,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Usa l'URL del backend da variabili d'ambiente
+    const backendUrl = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL;
+
     // 4. Chiama il backend FastAPI
-    const response = await fetch(`${process.env.BACKEND_URL}/therapy-session`, {
+    const response = await fetch(`${backendUrl}/therapy-session`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -37,7 +54,7 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify({ query, session_id, mood })
     });
     
-    // 5. Gestisci errori dal backend
+    // 5. Gestione avanzata degli errori dal backend
     if (!response.ok) {
       try {
         const errorData = await response.json();
@@ -47,8 +64,9 @@ export async function POST(req: NextRequest) {
         );
       } catch (e) {
         // Se non è possibile analizzare la risposta JSON
+        const errorText = await response.text();
         return NextResponse.json(
-          { error: `Errore del server (${response.status})` }, 
+          { error: `Errore del server (${response.status}): ${errorText}` }, 
           { status: response.status }
         );
       }

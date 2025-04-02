@@ -4,27 +4,44 @@ import { cookies } from 'next/headers';
 
 export async function POST(req: NextRequest) {
   try {
-    // Verifica autenticazione - correzione inizializzazione Supabase
+    // Crea il client Supabase correttamente
     const cookieStore = cookies();
     const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
     
-    const { data: { session } } = await supabase.auth.getSession();
+    // Verifica autenticazione - usa await per la gestione asincrona
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    
+    if (sessionError) {
+      console.error("Errore nel recupero della sessione:", sessionError);
+      return NextResponse.json(
+        { error: `Errore di autenticazione: ${sessionError.message}` }, 
+        { status: 401 }
+      );
+    }
+    
     if (!session) {
+      console.error("Nessuna sessione attiva trovata");
       return NextResponse.json(
         { error: 'Utente non autenticato' }, 
         { status: 401 }
       );
     }
 
+    // Log per debug - Corretto per gestire expires_at undefined
+    console.log("Token trovato per pathology-analysis:", session?.access_token ? "Sì" : "No",
+                session?.expires_at ? `Scade: ${new Date(session.expires_at * 1000).toLocaleString()}` : "Scadenza non disponibile");
+
     // Verifica che l'utente sia un terapeuta (opzionale)
-    // Se vuoi limitare questo endpoint solo ai terapeuti, puoi aggiungere questo controllo
-    const { data: profileData } = await supabase
+    const { data: profileData, error: profileError } = await supabase
       .from('profiles')
       .select('role')
       .eq('id', session.user.id)
       .single();
-      
-    if (profileData?.role !== 'therapist') {
+
+    if (profileError) {
+      console.error("Errore nel recupero del profilo:", profileError);
+      // Continuiamo comunque, il backend dovrebbe gestire l'autorizzazione
+    } else if (profileData?.role !== 'therapist') {
       return NextResponse.json(
         { error: 'Accesso negato: questa funzionalità è riservata ai terapeuti' },
         { status: 403 }
@@ -46,8 +63,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Usa l'URL del backend da variabili d'ambiente
+    const backendUrl = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL;
+
     // Chiama il backend
-    const response = await fetch(`${process.env.BACKEND_URL}/api/pathology-analysis`, {
+    const response = await fetch(`${backendUrl}/api/pathology-analysis`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -62,9 +82,17 @@ export async function POST(req: NextRequest) {
     });
     
     if (!response.ok) {
-      const errorData = await response.json();
+      // Gestione avanzata degli errori
+      let errorData;
+      try {
+        errorData = await response.json();
+      } catch (e) {
+        const errorText = await response.text();
+        errorData = { detail: errorText };
+      }
+      
       return NextResponse.json(
-        { error: errorData.detail || 'Errore del server' }, 
+        { error: errorData.detail || `Errore del server (${response.status})` }, 
         { status: response.status }
       );
     }

@@ -16,11 +16,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Inizializza Supabase
+    // Inizializza Supabase correttamente
     const cookieStore = cookies();
     const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
     
-    // Ottieni la sessione
+    // Usa await per la gestione asincrona dei cookies
     const { data: { session }, error: sessionError } = await supabase.auth.getSession();
     
     if (sessionError) {
@@ -39,11 +39,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Log per debug
-    console.log("Token trovato per recommend-resources:", session.access_token ? "Sì" : "No");
+    // Log per debug - Corretto per gestire expires_at undefined
+    console.log("Token trovato per recommend-resources:", session?.access_token ? "Sì" : "No", 
+                session?.expires_at ? `Scade: ${new Date(session.expires_at * 1000).toLocaleString()}` : "Scadenza non disponibile");
+    
+    // Usa l'URL del backend da variabili d'ambiente
+    const backendUrl = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL;
     
     // Chiama il backend
-    const response = await fetch(`${process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL}/api/recommend-resources`, {
+    const response = await fetch(`${backendUrl}/api/recommend-resources`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -53,11 +57,13 @@ export async function POST(req: NextRequest) {
     });
     
     if (!response.ok) {
-      const errorText = await response.text();
+      // Gestione avanzata degli errori
       let errorData;
       try {
-        errorData = JSON.parse(errorText);
+        errorData = await response.json();
       } catch (e) {
+        // Se non è possibile decodificare JSON, utilizza il testo
+        const errorText = await response.text();
         errorData = { detail: errorText };
       }
       
