@@ -27,7 +27,14 @@ export default function LoginPage() {
       if (session) {
         // Inizializza lo store per assicurarsi che user sia impostato
         await initialize()
-        router.replace('/dashboard')
+        
+        // Verifica il ruolo dell'utente e reindirizza di conseguenza
+        const currentUser = useAuthStore.getState().user
+        if (currentUser?.role === 'therapist') {
+          router.replace('/therapist-dashboard')
+        } else {
+          router.replace('/patient-dashboard')
+        }
       }
     }
     
@@ -73,14 +80,28 @@ export default function LoginPage() {
         try {
           await initialize()
           console.log("Store inizializzato")
+          
+          // Ottieni il ruolo dall'utente nello store o dai metadata
+          const userRole = useAuthStore.getState().user?.role || data.user?.user_metadata?.role || 'patient'
+          
+          console.log("Reindirizzamento in corso in base al ruolo:", userRole)
+          if (userRole === 'therapist') {
+            router.replace('/therapist-dashboard')
+          } else {
+            router.replace('/patient-dashboard')
+          }
         } catch (initError) {
           console.error("Errore durante l'inizializzazione:", initError)
-          // Continua comunque con il reindirizzamento
+          
+          // Anche in caso di errore, tenta di utilizzare il ruolo dai metadata
+          const userRole = data.user?.user_metadata?.role || 'patient'
+          
+          if (userRole === 'therapist') {
+            router.replace('/therapist-dashboard')
+          } else {
+            router.replace('/patient-dashboard')
+          }
         }
-        
-        console.log("Reindirizzamento in corso...")
-        // Reindirizza direttamente, senza setTimeout
-        router.replace('/dashboard')
       } else {
         // Registrazione
         toast.info("Registrazione in corso...", { id: "signup-toast" })
@@ -148,9 +169,6 @@ export default function LoginPage() {
               } else {
                 toast.error(`Errore: ${profileError.message || "Errore creazione profilo"}`, { id: "signup-toast" });
               }
-              
-              // Se c'è un errore, comunque continua perché l'utente auth è stato creato
-              // e il profilo potrebbe essere creato automaticamente dal trigger o dal flusso di login
             }
           }
 
@@ -164,8 +182,13 @@ export default function LoginPage() {
             console.error("Errore durante l'inizializzazione:", initError);
           }
           
-          console.log("Reindirizzamento dopo registrazione...");
-          router.replace('/dashboard');
+          // Reindirizzamento diretto in base al ruolo scelto durante la registrazione
+          console.log("Reindirizzamento in base al ruolo scelto:", role);
+          if (role === 'therapist') {
+            router.replace('/therapist-dashboard');
+          } else {
+            router.replace('/patient-dashboard');
+          }
         } catch (profileError: any) {
           console.error("Errore dettagliato:", profileError);
           toast.error("Errore nella creazione del profilo", {
@@ -173,9 +196,12 @@ export default function LoginPage() {
             description: profileError?.message || "Controlla la console per dettagli"
           });
           
-          // Nonostante l'errore del profilo, l'utente auth è stato creato
-          // Facciamo comunque il redirect
-          router.replace('/dashboard');
+          // Nonostante l'errore del profilo, reindirizza in base al ruolo scelto
+          if (role === 'therapist') {
+            router.replace('/therapist-dashboard');
+          } else {
+            router.replace('/patient-dashboard');
+          }
         }
       }
     } catch (error: any) {
