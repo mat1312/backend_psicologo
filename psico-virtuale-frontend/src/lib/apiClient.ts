@@ -1,23 +1,22 @@
+// src/lib/apiClient.ts
 import { toast } from 'sonner';
+import { supabase } from './supabase';
 
 export type ChatMessage = {
   role: 'user' | 'assistant';
   content: string;
 };
 
-// src/lib/apiClient.ts
-// Modifica l'interfaccia ChatResponse
-
 export interface ChatResponse {
-    answer: string;
-    sources?: Array<{
-      file_name?: string;
-      page?: number;
-      text?: string;
-    }>;
-    analysis?: string;
-    audio_url?: string; // Aggiunta questa proprietà, Modifica backend
-  }
+  answer: string;
+  sources?: Array<{
+    file_name?: string;
+    page?: number;
+    text?: string;
+  }>;
+  analysis?: string;
+  audio_url?: string;
+}
 
 export interface ResetSessionResponse {
   status: string;
@@ -52,12 +51,24 @@ export interface PathologyAnalysisResponse {
 }
 
 class ApiClient {
+  // Metodo privato per verificare la sessione
+  private async ensureSession(): Promise<string | null> {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session || !session.access_token) {
+      console.error("Nessuna sessione trovata, reindirizzamento alla pagina di login necessario");
+      return null;
+    }
+    return session.access_token;
+  }
+
   async sendMessage(
     message: string, 
     sessionId: string, 
     mood?: string
   ): Promise<ChatResponse> {
     try {
+      console.log(`ApiClient: invio messaggio per sessione ${sessionId}`);
+      
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: {
@@ -71,6 +82,20 @@ class ApiClient {
       });
 
       if (!response.ok) {
+        // Errore di autenticazione
+        if (response.status === 401) {
+          toast.error('Sessione scaduta', { 
+            description: 'Effettua nuovamente il login'
+          });
+          
+          // Reindirizza alla pagina di login dopo un breve ritardo
+          setTimeout(() => {
+            window.location.href = '/login';
+          }, 1500);
+          
+          throw new Error('Sessione scaduta, effettua nuovamente il login');
+        }
+        
         const errorData = await response.json();
         throw new Error(errorData.error || 'Si è verificato un errore');
       }
@@ -97,6 +122,18 @@ class ApiClient {
       });
 
       if (!response.ok) {
+        if (response.status === 401) {
+          toast.error('Sessione scaduta', { 
+            description: 'Effettua nuovamente il login'
+          });
+          
+          setTimeout(() => {
+            window.location.href = '/login';
+          }, 1500);
+          
+          throw new Error('Sessione scaduta');
+        }
+        
         const errorData = await response.json();
         throw new Error(errorData.error || 'Si è verificato un errore');
       }
@@ -115,6 +152,12 @@ class ApiClient {
       });
 
       if (!response.ok) {
+        if (response.status === 401) {
+          toast.error('Sessione scaduta');
+          setTimeout(() => window.location.href = '/login', 1500);
+          throw new Error('Sessione scaduta');
+        }
+        
         const errorData = await response.json();
         throw new Error(errorData.error || 'Si è verificato un errore');
       }
@@ -131,6 +174,8 @@ class ApiClient {
     sessionId: string
   ): Promise<ResourcesResponse> {
     try {
+      console.log(`ApiClient: richiesta risorse per sessione ${sessionId}`);
+      
       const response = await fetch('/api/recommend-resources', {
         method: 'POST',
         headers: {
@@ -143,6 +188,12 @@ class ApiClient {
       });
 
       if (!response.ok) {
+        if (response.status === 401) {
+          toast.error('Sessione scaduta');
+          setTimeout(() => window.location.href = '/login', 1500);
+          throw new Error('Sessione scaduta');
+        }
+        
         const errorData = await response.json();
         throw new Error(errorData.error || 'Si è verificato un errore');
       }
@@ -168,6 +219,12 @@ class ApiClient {
       });
 
       if (!response.ok) {
+        if (response.status === 401) {
+          toast.error('Sessione scaduta');
+          setTimeout(() => window.location.href = '/login', 1500);
+          throw new Error('Sessione scaduta');
+        }
+        
         const errorData = await response.json();
         throw new Error(errorData.error || 'Si è verificato un errore');
       }
@@ -193,6 +250,12 @@ class ApiClient {
       });
 
       if (!response.ok) {
+        if (response.status === 401) {
+          toast.error('Sessione scaduta');
+          setTimeout(() => window.location.href = '/login', 1500);
+          throw new Error('Sessione scaduta');
+        }
+        
         const errorData = await response.json();
         throw new Error(errorData.error || 'Si è verificato un errore');
       }
