@@ -4,9 +4,9 @@
 // Rinomina src/middleware.ts a src/middleware.ts.bak
 
 // OPZIONE 2: Modificarlo per consentire esplicitamente le pagine dashboard
+import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { createServerClient } from '@supabase/ssr'
 
 export async function middleware(req: NextRequest) {
   console.log("Middleware executing for path:", req.nextUrl.pathname);
@@ -19,26 +19,13 @@ export async function middleware(req: NextRequest) {
   }
   
   const res = NextResponse.next()
+  const supabase = createMiddlewareClient({ req, res })
+  
+  // Refresh session if expired
+  await supabase.auth.getSession()
   
   // Crea il client Supabase
   try {
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get: (name) => req.cookies.get(name)?.value,
-          set: (name, value, options) => {
-            res.cookies.set({ name, value, ...options })
-          },
-          remove: (name, options) => {
-            res.cookies.delete({ name, ...options })
-          },
-        },
-      }
-    )
-
-    // Ottieni la sessione
     const { data: { session } } = await supabase.auth.getSession()
     console.log("Middleware auth check result:", !!session);
 

@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 export const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 export const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
-// Configurazione ottimizzata del client Supabase
+// Configurazione ottimizzata del client Supabase per il browser
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     autoRefreshToken: true,

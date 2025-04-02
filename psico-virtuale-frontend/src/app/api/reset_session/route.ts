@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
+import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs';
 
 export async function POST(req: NextRequest) {
   try {
-    // Crea il client Supabase correttamente
-    const cookieStore = cookies();
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
+    // Crea una risposta vuota che poi modificheremo
+    const res = NextResponse.next();
     
-    // Verifica autenticazione - usa await per la gestione asincrona
+    // Usa il middleware client che è progettato per funzionare con Next.js
+    const supabase = createMiddlewareClient({ req, res });
+    
+    // Recupera la sessione
     const { data: { session }, error: sessionError } = await supabase.auth.getSession();
     
     if (sessionError) {
@@ -62,6 +63,14 @@ export async function POST(req: NextRequest) {
       } catch (e) {
         const errorText = await response.text();
         errorData = { detail: errorText };
+      }
+      
+      // Se è un errore di autenticazione, restituisci un errore 401
+      if (response.status === 401) {
+        return NextResponse.json(
+          { error: 'Utente non autenticato o sessione scaduta' }, 
+          { status: 401 }
+        );
       }
       
       return NextResponse.json(

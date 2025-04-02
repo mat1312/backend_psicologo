@@ -54,20 +54,46 @@ class ApiClient {
   // Metodo privato migliorato per verificare la sessione
   private async ensureSession(): Promise<string | null> {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      // Ottieni la sessione corrente
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError) {
+        console.error("Errore nel recuperare la sessione:", sessionError);
+        return null;
+      }
       
       if (!session || !session.access_token) {
         console.error("Nessuna sessione trovata o token mancante");
         return null;
       }
       
-      // Controllo scadenza token per debug - Versione corretta con controllo undefined
+      // Controllo scadenza token
       if (session.expires_at) {
         const now = Date.now() / 1000;
         const expiresAt = session.expires_at;
         const timeLeft = expiresAt - now;
         
         console.log(`Token presente, scade tra: ${Math.floor(timeLeft / 60)} minuti e ${Math.floor(timeLeft % 60)} secondi`);
+        
+        // Se il token scade in meno di 5 minuti, tenta di aggiornarlo
+        if (timeLeft < 300) {
+          console.log("Token in scadenza, tentativo di aggiornamento...");
+          
+          try {
+            const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+            
+            if (refreshError) {
+              console.error("Errore nell'aggiornamento del token:", refreshError);
+              // Continua con il token esistente
+            } else if (refreshData && refreshData.session) {
+              console.log("Token aggiornato con successo");
+              return refreshData.session.access_token;
+            }
+          } catch (refreshError) {
+            console.error("Errore imprevisto nell'aggiornamento del token:", refreshError);
+            // Continua con il token esistente
+          }
+        }
       } else {
         console.log("Token presente, ma scadenza non disponibile");
       }
@@ -87,13 +113,27 @@ class ApiClient {
     try {
       console.log(`ApiClient: invio messaggio per sessione ${sessionId}`);
       
-      // Solo per debug
-      await this.ensureSession();
+      // Ottieni il token di autenticazione
+      const token = await this.ensureSession();
+      
+      if (!token) {
+        console.error("Nessun token disponibile per la richiesta");
+        toast.error('Sessione non valida', { 
+          description: 'Effettua nuovamente il login'
+        });
+        
+        setTimeout(() => {
+          window.location.href = '/login';
+        }, 1500);
+        
+        throw new Error('Sessione non valida, effettua nuovamente il login');
+      }
       
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}` // Invia il token nel header
         },
         body: JSON.stringify({
           query: message,
@@ -140,13 +180,27 @@ class ApiClient {
 
   async resetSession(sessionId: string): Promise<ResetSessionResponse> {
     try {
-      // Solo per debug
-      await this.ensureSession();
+      // Ottieni il token di autenticazione
+      const token = await this.ensureSession();
+      
+      if (!token) {
+        console.error("Nessun token disponibile per la richiesta");
+        toast.error('Sessione non valida', { 
+          description: 'Effettua nuovamente il login'
+        });
+        
+        setTimeout(() => {
+          window.location.href = '/login';
+        }, 1500);
+        
+        throw new Error('Sessione non valida, effettua nuovamente il login');
+      }
       
       const response = await fetch('/api/reset-session', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}` // Invia il token nel header
         },
         body: JSON.stringify({
           session_id: sessionId,
@@ -187,11 +241,27 @@ class ApiClient {
 
   async getSessionSummary(sessionId: string): Promise<{ summary_html: string }> {
     try {
-      // Solo per debug
-      await this.ensureSession();
+      // Ottieni il token di autenticazione
+      const token = await this.ensureSession();
+      
+      if (!token) {
+        console.error("Nessun token disponibile per la richiesta");
+        toast.error('Sessione non valida', { 
+          description: 'Effettua nuovamente il login'
+        });
+        
+        setTimeout(() => {
+          window.location.href = '/login';
+        }, 1500);
+        
+        throw new Error('Sessione non valida, effettua nuovamente il login');
+      }
       
       const response = await fetch(`/api/session-summary/${sessionId}`, {
         method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}` // Invia il token nel header
+        }
       });
 
       if (!response.ok) {
@@ -227,13 +297,27 @@ class ApiClient {
     try {
       console.log(`ApiClient: richiesta risorse per sessione ${sessionId}`);
       
-      // Verifica sessione solo per debugging, ma usiamo comunque le API Routes
-      await this.ensureSession();
+      // Verifica la sessione e ottieni il token
+      const token = await this.ensureSession();
+      
+      if (!token) {
+        console.error("Nessun token disponibile per la richiesta");
+        toast.error('Sessione non valida', { 
+          description: 'Effettua nuovamente il login'
+        });
+        
+        setTimeout(() => {
+          window.location.href = '/login';
+        }, 2000);
+        
+        throw new Error('Sessione non valida, effettua nuovamente il login');
+      }
       
       const response = await fetch('/api/recommend-resources', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
           query,
@@ -279,13 +363,27 @@ class ApiClient {
 
   async getMoodAnalysis(sessionId: string): Promise<MoodAnalysisResponse> {
     try {
-      // Solo per debug
-      await this.ensureSession();
+      // Ottieni il token di autenticazione
+      const token = await this.ensureSession();
+      
+      if (!token) {
+        console.error("Nessun token disponibile per la richiesta");
+        toast.error('Sessione non valida', { 
+          description: 'Effettua nuovamente il login'
+        });
+        
+        setTimeout(() => {
+          window.location.href = '/login';
+        }, 1500);
+        
+        throw new Error('Sessione non valida, effettua nuovamente il login');
+      }
       
       const response = await fetch('/api/mood-analysis', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}` // Invia il token nel header
         },
         body: JSON.stringify({
           session_id: sessionId,
@@ -321,13 +419,27 @@ class ApiClient {
 
   async getPathologyAnalysis(sessionId: string): Promise<PathologyAnalysisResponse> {
     try {
-      // Solo per debug
-      await this.ensureSession();
+      // Ottieni il token di autenticazione
+      const token = await this.ensureSession();
+      
+      if (!token) {
+        console.error("Nessun token disponibile per la richiesta");
+        toast.error('Sessione non valida', { 
+          description: 'Effettua nuovamente il login'
+        });
+        
+        setTimeout(() => {
+          window.location.href = '/login';
+        }, 1500);
+        
+        throw new Error('Sessione non valida, effettua nuovamente il login');
+      }
       
       const response = await fetch('/api/pathology-analysis', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}` // Invia il token nel header
         },
         body: JSON.stringify({
           session_id: sessionId,

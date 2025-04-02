@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
+import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs';
 
 export async function POST(req: NextRequest) {
   try {
-    // 1. Crea il client Supabase correttamente
-    const cookieStore = cookies();
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
+    // 1. Crea una risposta vuota che poi modificheremo
+    const res = NextResponse.next();
     
-    // 2. Verifica autenticazione - usa await per la gestione asincrona
+    // 2. Usa il middleware client che è progettato per funzionare con Next.js
+    const supabase = createMiddlewareClient({ req, res });
+    
+    // 3. Recupera la sessione
     const { data: { session }, error: sessionError } = await supabase.auth.getSession();
     
     if (sessionError) {
@@ -31,7 +32,7 @@ export async function POST(req: NextRequest) {
     console.log("Token trovato per chat:", session?.access_token ? "Sì" : "No",
                 session?.expires_at ? `Scade: ${new Date(session.expires_at * 1000).toLocaleString()}` : "Scadenza non disponibile");
 
-    // 3. Estrai i dati dalla richiesta
+    // 4. Estrai i dati dalla richiesta
     const { query, session_id, mood } = await req.json();
     
     if (!query) {
@@ -44,7 +45,7 @@ export async function POST(req: NextRequest) {
     // Usa l'URL del backend da variabili d'ambiente
     const backendUrl = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL;
 
-    // 4. Chiama il backend FastAPI
+    // 5. Chiama il backend FastAPI
     const response = await fetch(`${backendUrl}/therapy-session`, {
       method: 'POST',
       headers: {
@@ -54,10 +55,19 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify({ query, session_id, mood })
     });
     
-    // 5. Gestione avanzata degli errori dal backend
+    // 6. Gestione avanzata degli errori dal backend
     if (!response.ok) {
       try {
         const errorData = await response.json();
+        
+        // Se è un errore di autenticazione, restituisci un errore 401
+        if (response.status === 401) {
+          return NextResponse.json(
+            { error: 'Utente non autenticato o sessione scaduta' }, 
+            { status: 401 }
+          );
+        }
+        
         return NextResponse.json(
           { error: errorData.detail || 'Errore del server' }, 
           { status: response.status }
@@ -72,7 +82,7 @@ export async function POST(req: NextRequest) {
       }
     }
     
-    // 6. Restituisci la risposta del backend
+    // 7. Restituisci la risposta del backend
     const data = await response.json();
     return NextResponse.json(data);
   } catch (error: any) {

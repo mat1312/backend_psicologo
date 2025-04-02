@@ -133,12 +133,24 @@ export default function PatientDashboardPage() {
 
   // Funzione per recuperare le risorse consigliate
   const fetchResources = async (sessionId: string) => {
+    if (!sessionId) return;
+    
     try {
-      const response = await apiClient.getResourceRecommendations('', sessionId)
-      setResources(response.resources)
-    } catch (error) {
-      console.error('Errore nel recupero delle risorse:', error)
-      // Non mostriamo toast qui per non disturbare l'utente
+      const response = await apiClient.getResourceRecommendations('', sessionId);
+      setResources(response.resources);
+    } catch (error: any) {
+      console.error('Errore nel recupero delle risorse:', error);
+      
+      // Non mostriamo toast per errori di sessione scaduta 
+      // poiché l'apiClient già gestisce la visualizzazione
+      if (!error.message?.includes('sessione')) {
+        toast.error('Errore nel recupero delle risorse', {
+          description: 'Per favore, riprova più tardi'
+        });
+      }
+      
+      // Imposta una lista vuota per evitare problemi di rendering
+      setResources([]);
     }
   }
 
