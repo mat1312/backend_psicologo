@@ -32,9 +32,11 @@ export default function LoginPage() {
           // Verifica il ruolo dell'utente e reindirizza di conseguenza
           const currentUser = useAuthStore.getState().user
           if (currentUser?.role === 'therapist') {
-            window.location.href = '/therapist-dashboard'
+            // window.location.href = '/therapist-dashboard'
+            router.push('/therapist-dashboard')
           } else {
-            window.location.href = '/patient-dashboard'
+            // window.location.href = '/patient-dashboard'
+            router.push('/patient-dashboard')
           }
         }
       } catch (error) {
@@ -43,7 +45,7 @@ export default function LoginPage() {
     }
     
     checkSession()
-  }, [initialize])
+  }, [initialize, router])
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -90,28 +92,31 @@ export default function LoginPage() {
           
           console.log("Reindirizzamento in corso in base al ruolo:", userRole)
           
-          // Utilizzare window.location.href come soluzione più diretta
-          // invece di router.push che potrebbe non funzionare
-          setTimeout(() => {
+          // Utilizzare router.push invece di window.location.href
+          // setTimeout(() => {
             if (userRole === 'therapist') {
-              window.location.href = '/therapist-dashboard'
+              // window.location.href = '/therapist-dashboard'
+              router.push('/therapist-dashboard')
             } else {
-              window.location.href = '/patient-dashboard'
+              // window.location.href = '/patient-dashboard'
+              router.push('/patient-dashboard')
             }
-          }, 1000)
+          // }, 1000)
         } catch (initError) {
           console.error("Errore durante l'inizializzazione:", initError)
           
           // Anche in caso di errore, tenta di utilizzare il ruolo dai metadata
           const userRole = data.user?.user_metadata?.role || 'patient'
           
-          setTimeout(() => {
+          // setTimeout(() => {
             if (userRole === 'therapist') {
-              window.location.href = '/therapist-dashboard'
+              // window.location.href = '/therapist-dashboard'
+              router.push('/therapist-dashboard')
             } else {
-              window.location.href = '/patient-dashboard'
+              // window.location.href = '/patient-dashboard'
+              router.push('/patient-dashboard')
             }
-          }, 1000)
+          // }, 1000)
         }
       } else {
         // Registrazione
@@ -190,15 +195,17 @@ export default function LoginPage() {
             console.error("Errore durante l'inizializzazione:", initError);
           }
           
-          // Utilizzare window.location.href come soluzione più diretta
-          setTimeout(() => {
+          // Utilizzare router.push invece di window.location.href
+          // setTimeout(() => {
             console.log("Reindirizzamento in base al ruolo scelto:", role);
             if (role === 'therapist') {
-              window.location.href = '/therapist-dashboard'
+              // window.location.href = '/therapist-dashboard'
+              router.push('/therapist-dashboard')
             } else {
-              window.location.href = '/patient-dashboard'
+              // window.location.href = '/patient-dashboard'
+              router.push('/patient-dashboard')
             }
-          }, 1000);
+          // }, 1000);
         } catch (profileError: any) {
           console.error("Errore dettagliato:", profileError);
           toast.error("Errore nella creazione del profilo", {
@@ -207,13 +214,15 @@ export default function LoginPage() {
           });
           
           // Nonostante l'errore del profilo, reindirizza in base al ruolo scelto
-          setTimeout(() => {
+          // setTimeout(() => {
             if (role === 'therapist') {
-              window.location.href = '/therapist-dashboard'
+              // window.location.href = '/therapist-dashboard'
+              router.push('/therapist-dashboard')
             } else {
-              window.location.href = '/patient-dashboard'
+              // window.location.href = '/patient-dashboard'
+              router.push('/patient-dashboard')
             }
-          }, 1000);
+          // }, 1000);
         }
       }
     } catch (error: any) {
